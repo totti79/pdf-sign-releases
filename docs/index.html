@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>PDF Sign</title>
+<style>
+  :root{--blue:#2956e8;--ink:#1c2030;--mute:#6b7280;--line:#d7dbe3;--bg:#eef0f4}
+  *{box-sizing:border-box}
+  body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:16px;background:var(--bg);color:var(--ink);
+    font:16px/1.5 system-ui,-apple-system,'Segoe UI',Roboto,sans-serif}
+  main{width:100%;max-width:420px;background:#fff;border-radius:16px;padding:28px 24px;box-shadow:0 6px 30px rgba(0,0,0,.08);text-align:center}
+  h1{font-size:22px;margin:0 0 8px}
+  p{margin:0 0 14px;color:var(--mute)}
+  .ok{font-size:44px;line-height:1;margin-bottom:10px}
+  label{display:block;text-align:left;font-size:14px;margin:12px 0 4px}
+  input{width:100%;height:44px;padding:0 12px;border:1px solid var(--line);border-radius:10px;font:inherit}
+  button{width:100%;height:46px;margin-top:16px;border:0;border-radius:10px;background:var(--blue);color:#fff;font:inherit;font-weight:600;cursor:pointer}
+  button:disabled{opacity:.5}
+  .err{color:#c62828;min-height:20px;margin:10px 0 0;font-size:14px}
+  [hidden]{display:none!important}
+</style>
+</head>
+<body>
+<main>
+  <section id="done" hidden>
+    <div class="ok">✓</div>
+    <h1>Email confirmed</h1>
+    <p>Your PDF Sign account is ready. Go back to the app and sign in with your email and password.</p>
+  </section>
+
+  <section id="reset" hidden>
+    <h1>Choose a new password</h1>
+    <p>Enter a new password for your PDF Sign account.</p>
+    <form id="form">
+      <label for="p1">New password</label>
+      <input id="p1" type="password" autocomplete="new-password" minlength="8" required>
+      <label for="p2">Repeat it</label>
+      <input id="p2" type="password" autocomplete="new-password" minlength="8" required>
+      <button id="go" type="submit">Save password</button>
+      <p class="err" id="err"></p>
+    </form>
+  </section>
+
+  <section id="resetDone" hidden>
+    <div class="ok">✓</div>
+    <h1>Password changed</h1>
+    <p>Go back to PDF Sign and sign in with your new password.</p>
+  </section>
+
+  <section id="problem" hidden>
+    <h1>This link has expired</h1>
+    <p>Go back to PDF Sign and request a new email. Links work once and expire after a while.</p>
+  </section>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<script>
+(() => {
+  const $ = id => document.getElementById(id);
+  const show = id => { for (const s of document.querySelectorAll('section')) s.hidden = s.id !== id; };
+  const hash = new URLSearchParams(location.hash.slice(1)), query = new URLSearchParams(location.search);
+  const type = hash.get('type') || query.get('type');
+  const failed = hash.get('error') || query.get('error');
+  if (failed) return show('problem');
+
+  const client = supabase.createClient('https://urrrkhunnetsvuycjywi.supabase.co',
+    'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVycnJraHVubmV0c3Z1eWNqeXdpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI3NDkwNzcsImV4cCI6MjEwODMyNTA3N30.87EK0F0RKTZcztLLnMQvYbuc8sxHCGw8OA9rvojrve0', { auth: { persistSession: false, detectSessionInUrl: true } });
+
+  if (type === 'recovery') {
+    show('reset');
+    $('form').onsubmit = async e => {
+      e.preventDefault();
+      $('err').textContent = '';
+      if ($('p1').value !== $('p2').value) return $('err').textContent = 'The two passwords are not the same.';
+      $('go').disabled = true;
+      const { error } = await client.auth.updateUser({ password: $('p1').value });
+      if (error) { $('go').disabled = false; return $('err').textContent = error.message; }
+      show('resetDone');
+    };
+  } else if (type || hash.get('access_token') || query.get('code')) {
+    show('done');                      // sign-up / email change confirmed: Supabase already verified it before sending the person here
+  } else {
+    show('done');
+    $('done').querySelector('h1').textContent = 'PDF Sign';
+    $('done').querySelector('p').textContent = 'Open the PDF Sign app on your phone or computer.';
+    $('done').querySelector('.ok').hidden = true;
+  }
+})();
+</script>
+</body>
+</html>
